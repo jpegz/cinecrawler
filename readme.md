@@ -10,6 +10,7 @@ http://localhost:3000/movies returns json response with
 				description:descriptionRelativeUrl,
 				title:MovieName
 			}
+			,...
 		 ]
 	},
 	...
