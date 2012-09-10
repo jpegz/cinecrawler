@@ -1,9 +1,29 @@
 {
-  "name": "cine-crawler",
-  "version": "0.0.1",
-  "dependencies": {
-    "cheerio": "0.9.2"
-  },
+
+"name": "cinecrawler",
+
+"version": "0.0.1",
+  
+"private": true,
+  
+"scripts": 
+{
+"start": "node app"
+  
+},
+
+"dependencies": 	
+	{
+
+		"cheerio": "0.9.2",
+		"express": "3.0.0rc4",
+
+		"ejs": "*",
+    
+		"stylus": "*"
+  
+	}
+,
   "engines": {
     "node": "0.9.x",
     "npm": "1.1.x"
