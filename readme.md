@@ -1,6 +1,7 @@
 #CineCrawler
 ## Usage example
 runs on localhost and listens on port 3000.
+@code
 http://localhost:3000/movies returns json response with
 [
 	{
@@ -19,16 +20,15 @@ http://localhost:3000/movies returns json response with
 ]
 
 node app.js
-
+@code@
 #Purpose
 Learning async programming with Node by scraping the Caribbean Cinemas Website.
 This tool gets all the movies showing at theaters by Caribbean Cinemas and outputs it to the console.
 
-
 ## To do
 -Make code better.
--Persist request information to a database or file to be read by another process.
--Update the theater information every thursday.
+	-Persist request information to a database or file to be read by another process.
+	-Update the theater information every thursday.
 
 
 ##Dependencies:
