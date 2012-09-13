@@ -1,12 +1,17 @@
 ﻿var http = require('http');
+var url = require('url');
 var cheerio = require('cheerio');
 var util = require("util");
+var _ = require('underscore')._;
+
 var done = false;
 exports = module.exports;
 
 var movies = null;
-var callbackFunction = null;
+var movietheaters = null;
+var CurrentMovies = null;
 
+var callbackFunction = null;
 
 
 var cine = function(callback){
@@ -27,19 +32,20 @@ http.get(options, function(response) {
 			GetTheaters(dataToSend);})
 		response.on('error', function(e) {
 			console.log("Got error: " + e.message);
-		});		
-	});
+		});	
+		});	
+
+	var nowPlaying = {};
 	function GetTheaters(msg) {
 		var $ = cheerio.load(msg);		
-		var select = "<select id='theaterSelection'></select>";
-			$('#theaters').append(select);
 		var theaters = [];
 		$('#menuDosCoulm .menuCentralInt td').each(function(){
 				var click = $(this).attr('onClick');					
 				if(click){		
 					click  = click.slice(click.indexOf('=')+2,click.lastIndexOf("'"));				
 					theaters[theaters.length] = 
-					{ 
+					{ 	
+						id : url.parse(click,true).query.id_theater,
 						title : $(this).text(),
 						url : click
 					};
@@ -53,14 +59,14 @@ http.get(options, function(response) {
 				return -1;
 			return 0;
 		});	
+		movietheaters = theaters;
 		GetMovies(theaters);				
 	}
 	function GetMovies(theaters)
-	{					
-		for(theatersIndex = theaters.length - 1; theatersIndex >= 0; theatersIndex--){
-			var theater = theaters[theatersIndex];		
-			GetMoviesByTheater(theater, theaters.length);
-		}
+	{				
+		_.each(theaters, function(element, index, list){
+			GetMoviesByTheater(element,list.length);
+		});
 	}
 
 	var endCount = 0; //global variable :( what do?
@@ -80,26 +86,28 @@ http.get(options, function(response) {
 				dataToSend += chunk;
 			}).on('end',function(){	
 				endCount++;	
-				var result = ParseResult(theaterName,dataToSend);			
+				var result = ParseResult(theater,dataToSend);			
 				ReturnArray.push(result);
 				done = true;
 				if(endCount === theaterCount){				
 					movies = ReturnArray;
-					callback(movies);
-					//console.log(util.inspect(ReturnArray,false,null));				
+					CurrentMovies = _.values(nowPlaying);
+					if(_.isFunction(callback)){
+						callback(movies);
+					}
 				}		
 			}).on('error', function(e) {
 				console.log("Got error: " + e.message);});				
 			});
 	}
 
-	function ParseResult(theaterName,s){	
-		var theater = theaterName;	
+	function ParseResult(theater,s){	
+		var _theater = theater.title;	
 		var $ = cheerio.load(s);
 		var movieList = [];
 		var x = $('.NowShowingText');		
-		var allmovies = x.find('a');
-		allmovies.each(function(index, element){		
+		var $allmovies = x.find('a');
+		$allmovies.each(function(index, element){		
 			var times = [];			
 			$(element).parent().parent().parent().parent().next().find('[id$="_diashoras"]')
 				.each(function(index,element){
@@ -113,12 +121,27 @@ http.get(options, function(response) {
 						times.splice(timesIndex,1);					
 					}				
 			});
-			movieList.push({
-				id:index,
+			var descriptionUrl = $(element).attr('href').trim();
+			var hofn_ = url.parse(descriptionUrl,true).query.HOFN;
+			var movieId = url.parse(descriptionUrl,true).query.id_movie;
+			var movie = {		
+				movieId : movieId,
+				title:$(element).text(),				
 				times:times,
-				description:$(element).attr('href').trim(),
-				title:$(element).text(),
-			});				
+				description:descriptionUrl,							
+			};
+			movieList.push(movie);
+			if(movie.movieId in nowPlaying){
+				
+			}
+			else {
+				nowPlaying[movieId] = {
+					movieId:movieId,
+					title: movie.title,
+					description:movie.description,
+					HOFN: hofn_
+				}
+			}				
 		});
 		return {
 			theater: theater,
@@ -136,6 +159,80 @@ exports.list = function(req, res){
 	else {
 		cine(function(movies){
 	 		res.json(movies);
+		});
+	}
+}
+
+exports.theaters = function(req, res){
+	if(done)
+	{
+		res.json(movietheaters);
+	}
+	else {
+		cine(function(movies){
+			res.json(movietheaters);
+		});
+	}
+}
+
+exports.theaterName = function(req, res){
+	var name = req.params.name;
+	if(done)
+	{
+		var theater = _.find(movies,function(theater){			
+				return theater.theater.title == name;
+			});
+		if(theater){
+			res.json(theater);
+		}
+		else res.send(404);
+	}
+	else {
+		cine(function(movies){
+			var theater = _.find(movies,function(theater){			
+				return theater.theater.title == name;
+			});
+			if(theater){
+				res.json(theater);
+			}
+			else res.send(404);
+		});
+	}
+}
+
+exports.theaterId = function(req, res){
+	var id = req.params.id;
+	if(done)
+	{
+		var theater = _.find(movies,function(theater){			
+				return theater.theater.id == id;
+			});
+		if(theater){
+			res.json(theater);
+		}
+		else res.send(404);
+	}
+	else {
+		cine(function(theaterObject){
+			var theater = _.find(theaterObject,function(theater){			
+				return theater.theater.id == id;
+			});
+			if(theater){
+				res.json(theater);
+			}
+			else res.send(404);
+		});
+	}
+}
+
+exports.movies = function(req, res){
+	if(done)
+	{
+		res.json(CurrentMovies);
+	}
+	else {
+		cine(function(){
+			res.json(CurrentMovies);
 		});
 	}
 }

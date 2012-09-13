@@ -33,7 +33,13 @@ app.configure('development', function(){
 
 app.get('/', routes.index);
 app.get('/users', user.list);
-app.get('/movies', movies.list);
+app.get('/cine', movies.list);
+app.get('/cine/theaters',movies.theaters);
+//app.get('/cine/theaters/name',movies.theaterName);
+app.get('/cine/theaters/name/:name',movies.theaterName);
+app.get('/cine/theaters/id/:id',movies.theaterId);
+app.get('/cine/movies',movies.movies);
+
 
 http.createServer(app).listen(app.get('port'), function(){
   console.log("Express server listening on port " + app.get('port'));
