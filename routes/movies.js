@@ -3,6 +3,7 @@ var url = require('url');
 var cheerio = require('cheerio');
 var util = require("util");
 var _ = require('underscore')._;
+var async = require('async');
 
 var done = false;
 exports = module.exports;
@@ -13,7 +14,7 @@ var CurrentMovies = null;
 
 var callbackFunction = null;
 
-
+//callback parameters are the list of movies in all theaters, the list of theaters and the list of distinct movies
 var cine = function(callback){
 
 var options = {
@@ -64,50 +65,41 @@ http.get(options, function(response) {
 	}
 	function GetMovies(theaters)
 	{				
-		_.each(theaters, function(element, index, list){
-			GetMoviesByTheater(element,list.length);
+		var parallelFunctions = [];
+		_.each(theaters, function(theater, index, list){			
+			parallelFunctions.push(function(asyncCallback){
+					var _theater = theater;
+					var url = _theater.url;
+					var localOptions = options;
+					localOptions.path = "/" + url;	
+				http.get(localOptions,function(res) {  					
+					var dataToSend = "";					
+					res.on('data', function(chunk) {					
+						dataToSend += chunk;
+					}).on('end',function(){	
+						var result = ParseResult(_theater,dataToSend);			
+						asyncCallback(null,result);					
+					}).on('error', function(e) {
+						console.log("Got error: " + e.message);
+					});				
+				});
+			});			
+		});
+		async.parallel(parallelFunctions,function(err, result){
+			done = true;
+			movies = result;
+			CurrentMovies = _.values(nowPlaying);
+			if(_.isFunction(callback)){
+				callback(movies, theaters, CurrentMovies);
+			}
 		});
 	}
-
-	var endCount = 0; //global variable :( what do?
-	var ReturnArray = []; //global variable :( what do?
-
-	function GetMoviesByTheater(theater, theaterCount)
-	{	
-		var theaterName = theater.title;
-		var url = theater.url;
-		var localOptions = options;
-		var localHttp = http;
-		localOptions.path = "/" + url;	
-		localHttp.get(localOptions, function(res) {  
-			var dataToSend = "";
-			var _theaterName = theaterName
-			res.on('data', function(chunk) {					
-				dataToSend += chunk;
-			}).on('end',function(){	
-				endCount++;	
-				var result = ParseResult(theater,dataToSend);			
-				ReturnArray.push(result);
-				done = true;
-				if(endCount === theaterCount){				
-					movies = ReturnArray;
-					CurrentMovies = _.values(nowPlaying);
-					if(_.isFunction(callback)){
-						callback(movies);
-					}
-				}		
-			}).on('error', function(e) {
-				console.log("Got error: " + e.message);});				
-			});
-	}
-
 	function ParseResult(theater,s){	
-		var _theater = theater.title;	
 		var $ = cheerio.load(s);
 		var movieList = [];
 		var x = $('.NowShowingText');		
 		var $allmovies = x.find('a');
-		$allmovies.each(function(index, element){		
+		$allmovies.each(function(index, element){				
 			var times = [];			
 			$(element).parent().parent().parent().parent().next().find('[id$="_diashoras"]')
 				.each(function(index,element){
@@ -135,6 +127,7 @@ http.get(options, function(response) {
 				
 			}
 			else {
+				
 				nowPlaying[movieId] = {
 					movieId:movieId,
 					title: movie.title,
@@ -152,88 +145,103 @@ http.get(options, function(response) {
 }
 
 exports.list = function(req, res){
-	if(done)
-	{
+	initialize(function(AllMoviesAllTheaters, AllTheaters, AllMovies){
 		res.json(movies);
-	}
-	else {
-		cine(function(movies){
-	 		res.json(movies);
-		});
-	}
+	});
 }
 
 exports.theaters = function(req, res){
-	if(done)
-	{
-		res.json(movietheaters);
-	}
-	else {
-		cine(function(movies){
-			res.json(movietheaters);
-		});
-	}
+	initialize(function(AllMoviesAllTheaters, AllTheaters, AllMovies){
+		res.json(AllTheaters);	
+	});
 }
 
 exports.theaterName = function(req, res){
-	var name = req.params.name;
-	if(done)
-	{
-		var theater = _.find(movies,function(theater){			
+	initialize(function(AllMoviesAllTheaters, AllTheaters, AllMovies){	
+		var name = req.params.name;	
+		var theater = _.find(AllMoviesAllTheaters,function(theater){			
 				return theater.theater.title == name;
 			});
 		if(theater){
 			res.json(theater);
 		}
 		else res.send(404);
-	}
-	else {
-		cine(function(movies){
-			var theater = _.find(movies,function(theater){			
-				return theater.theater.title == name;
-			});
-			if(theater){
-				res.json(theater);
-			}
-			else res.send(404);
-		});
-	}
+	});
 }
 
 exports.theaterId = function(req, res){
-	var id = req.params.id;
-	if(done)
-	{
-		var theater = _.find(movies,function(theater){			
+	initialize(function(AllMoviesAllTheaters, AllTheaters, AllMovies){
+		var id = req.params.id;
+		var theater = _.find(movies,function(theater){
 				return theater.theater.id == id;
 			});
 		if(theater){
 			res.json(theater);
 		}
 		else res.send(404);
-	}
-	else {
-		cine(function(theaterObject){
-			var theater = _.find(theaterObject,function(theater){			
-				return theater.theater.id == id;
-			});
-			if(theater){
-				res.json(theater);
-			}
-			else res.send(404);
-		});
-	}
+	});
 }
 
 exports.movies = function(req, res){
-	if(done)
-	{
-		res.json(CurrentMovies);
+	initialize(function(AllMoviesAllTheaters, AllTheaters, AllMovies){
+		res.json(AllMovies);
+	});
+}
+
+exports.movieId = function(req, res) {
+	initialize(function(AllMoviesAllTheaters, AllTheaters, AllMovies){
+		var id = req.params.id;	
+		var movie = _.find(AllMovies,function(movie){			
+			return movie.movieId == id;
+		});
+		if(movie){
+			res.json(movie);
+		}
+		else res.send(404);		
+	});
+}
+
+exports.movieTimes = function(req, res) {
+	initialize(function(AllMoviesAllTheaters, AllTheaters, AllMovies){
+		var id = req.params.id;
+		console.log("id = " + id);
+		_.each(AllMoviesAllTheaters, function(element, index, list){
+			_.each(element.movies, function(movie, movieIndex, movieList){
+				AllMoviesAllTheaters[index].movies[movieIndex].theater = element.theater;
+			});
+		});
+		var movies = _.pluck(AllMoviesAllTheaters,"movies");
+		var flat = _.flatten(movies);
+		var movie = _.filter(flat,function(m){
+			return m.movieId == id;
+		});		
+		if(movie){
+			res.json(movie);
+		}
+		else res.send(404);
+	});
+}
+
+function initialize(callback){
+	if(!done){
+		cine(function(AllMoviesAllTheaters, AllTheaters, AllMovies){
+			movies = AllMoviesAllTheaters;
+			movieTheaters = AllTheaters;
+			CurrentMovies = AllMovies;
+			done = true;
+			if(_.isFunction(callback)){
+				callback(AllMoviesAllTheaters,AllTheaters,AllMovies);
+			}
+		});	
 	}
 	else {
-		cine(function(){
-			res.json(CurrentMovies);
-		});
+		if(_.isFunction(callback)){
+			callback(movies,movieTheaters,CurrentMovies);
+		}
 	}
 }
 
+//export.all = function(callback){	
+//	initialize(callback);
+//}
+initialize();

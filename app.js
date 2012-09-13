@@ -39,7 +39,8 @@ app.get('/cine/theaters',movies.theaters);
 app.get('/cine/theaters/name/:name',movies.theaterName);
 app.get('/cine/theaters/id/:id',movies.theaterId);
 app.get('/cine/movies',movies.movies);
-
+app.get('/cine/movies/id/:id',movies.movieId);
+app.get('/cine/movies/id/:id/times',movies.movieTimes);
 
 http.createServer(app).listen(app.get('port'), function(){
   console.log("Express server listening on port " + app.get('port'));
