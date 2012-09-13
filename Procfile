@@ -1,1 +1,1 @@
-worker: node cinecrawler.js
+web: node app.js
