@@ -1,4 +1,4 @@
-﻿var http = require('http');
+var http = require('http');
 var url = require('url');
 var cheerio = require('cheerio');
 var util = require("util");
