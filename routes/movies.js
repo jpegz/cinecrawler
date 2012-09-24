@@ -4,6 +4,8 @@ var cheerio = require('cheerio');
 var util = require("util");
 var _ = require('underscore')._;
 var async = require('async');
+var redis = require('redis'),
+	client = redis.createClient();
 
 var done = false;
 exports = module.exports;
@@ -16,6 +18,32 @@ var callbackFunction = null;
 
 //callback parameters are the list of movies in all theaters, the list of theaters and the list of distinct movies
 var cine = function(callback){
+
+client.get("movies",function(err, reply){
+	if(reply){
+		movies = JSON.parse(reply);
+	}
+	console.log(reply);
+});
+
+client.get("currentMovies",function(err, reply){
+	if(reply){
+		CurrentMovies = JSON.parse(reply);
+	}
+	console.log(reply);
+});
+
+client.get("movieTheaters", function(err,reply){
+	if(reply){
+		movieTheaters = JSON.parse(reply);
+	}
+	console.log(reply);
+});
+
+if(movies && CurrentMovies && movieTheaters){
+	callback(movies, movieTheaters, CurrentMovies);
+	return;
+}
 
 var options = {
 	  	host: 'caribbeancinemas.com',
@@ -229,6 +257,9 @@ function initialize(callback){
 			movieTheaters = AllTheaters;
 			CurrentMovies = AllMovies;
 			done = true;
+			client.set("currentMovies",JSON.stringify(CurrentMovies),redis.print);
+			client.set("movieTheaters",JSON.stringify(movieTheaters),redis.print);
+			client.set("movies",JSON.stringify(movies),redis.print);
 			if(_.isFunction(callback)){
 				callback(AllMoviesAllTheaters,AllTheaters,AllMovies);
 			}
@@ -241,7 +272,4 @@ function initialize(callback){
 	}
 }
 
-//export.all = function(callback){	
-//	initialize(callback);
-//}
 initialize();
