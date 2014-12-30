@@ -4,8 +4,6 @@
  */
 
 var express = require('express')
-  , routes = require('./routes')
-  , user = require('./routes/user')
   , movies = require('./routes/movies')
   , http = require('http')
   , path = require('path');
@@ -31,11 +29,8 @@ app.configure('development', function(){
   app.use(express.errorHandler());
 });
 
-app.get('/', routes.index);
-app.get('/users', user.list);
 app.get('/cine', movies.list);
 app.get('/cine/theaters',movies.theaters);
-//app.get('/cine/theaters/name',movies.theaterName);
 app.get('/cine/theaters/name/:name',movies.theaterName);
 app.get('/cine/theaters/id/:id',movies.theaterId);
 app.get('/cine/movies',movies.movies);

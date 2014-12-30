@@ -4,8 +4,6 @@ var cheerio = require('cheerio');
 var util = require("util");
 var _ = require('underscore')._;
 var async = require('async');
-var redis = require('redis'),
-	client = redis.createClient();
 
 var done = false;
 exports = module.exports;
@@ -18,27 +16,6 @@ var callbackFunction = null;
 
 //callback parameters are the list of movies in all theaters, the list of theaters and the list of distinct movies
 var cine = function(callback){
-
-client.get("movies",function(err, reply){
-	if(reply){
-		movies = JSON.parse(reply);
-	}
-	console.log(reply);
-});
-
-client.get("currentMovies",function(err, reply){
-	if(reply){
-		CurrentMovies = JSON.parse(reply);
-	}
-	console.log(reply);
-});
-
-client.get("movieTheaters", function(err,reply){
-	if(reply){
-		movieTheaters = JSON.parse(reply);
-	}
-	console.log(reply);
-});
 
 if(movies && CurrentMovies && movieTheaters){
 	callback(movies, movieTheaters, CurrentMovies);
@@ -66,19 +43,17 @@ http.get(options, function(response) {
 
 	var nowPlaying = {};
 	function GetTheaters(msg) {
+		
 		var $ = cheerio.load(msg);		
 		var theaters = [];
-		$('#menuDosCoulm .menuCentralInt td').each(function(){
-				var click = $(this).attr('onClick');					
-				if(click){		
-					click  = click.slice(click.indexOf('=')+2,click.lastIndexOf("'"));				
-					theaters[theaters.length] = 
-					{ 	
-						id : url.parse(click,true).query.id_theater,
-						title : $(this).text(),
-						url : click
-					};
-				}
+		$('.puerto-rico-theater-menu a').each(function(){			
+				 var click = $(this).attr('href');									 
+					 theaters[theaters.length] = 
+					 { 	
+						 id : url.parse(click,true).query.id_theater,
+						 title : $(this).text(),
+						 url : click
+					 };						
 		});
 		theaters.sort(function(a,b){
 			var tA = a.title.toLowerCase(), tB = b.title.toLowerCase();
@@ -125,12 +100,12 @@ http.get(options, function(response) {
 	function ParseResult(theater,s){	
 		var $ = cheerio.load(s);
 		var movieList = [];
-		var x = $('.NowShowingText');		
-		var $allmovies = x.find('a');
+		var x = $('.TheaterMovieItems');		
+		var $allmovies = x.find('[id^="ContentPlaceHolderDefault_cp_content_theaterandmovies_Repeater1_LinkMovie_"]');
 		$allmovies.each(function(index, element){				
 			var times = [];			
-			$(element).parent().parent().parent().parent().next().find('[id$="_diashoras"]')
-				.each(function(index,element){
+			$(element).parent().parent().find('.mhoras [id^="ContentPlaceHolderDefault_cp_content_theaterandmovies_Repeater1_diashoras_"]')
+				.each(function(index,element){					
 					times = $(element).html().split('<b class="INFOHEADERS">');
 					for(var timesIndex = 0; timesIndex < times.length; timesIndex++){							
 						var n=times[timesIndex].replace(/&nbsp;/g,'').replace(/<br\/>/g,"").replace(/<\/b>/g,"");
@@ -257,9 +232,9 @@ function initialize(callback){
 			movieTheaters = AllTheaters;
 			CurrentMovies = AllMovies;
 			done = true;
-			client.set("currentMovies",JSON.stringify(CurrentMovies),redis.print);
-			client.set("movieTheaters",JSON.stringify(movieTheaters),redis.print);
-			client.set("movies",JSON.stringify(movies),redis.print);
+			//client.set("currentMovies",JSON.stringify(CurrentMovies),redis.print);
+			//client.set("movieTheaters",JSON.stringify(movieTheaters),redis.print);
+			//client.set("movies",JSON.stringify(movies),redis.print);
 			if(_.isFunction(callback)){
 				callback(AllMoviesAllTheaters,AllTheaters,AllMovies);
 			}
